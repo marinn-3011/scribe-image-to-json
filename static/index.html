@@ -1,0 +1,185 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Scribe</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,400;12..96,600;12..96,800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+:root{--ink:#170d2b;--plum:#25164a;--plum2:#33205f;--lilac:#c9b8ff;--paper:#efeaf8;--pumpkin:#ff8a3d;--mint:#7be0b0;--rose:#ff6b8b;color-scheme:dark}
+*{box-sizing:border-box}
+body{margin:0;background:var(--ink);color:var(--paper);font:400 16px/1.5 "Bricolage Grotesque",system-ui,sans-serif}
+header{padding:36px 40px 8px;max-width:1280px;margin:auto}
+h1{margin:0;font-size:clamp(34px,5vw,56px);font-weight:800;letter-spacing:-.03em;line-height:1}
+header p{margin:10px 0 0;color:var(--lilac);max-width:52ch}
+main{display:grid;grid-template-columns:minmax(0,5fr) minmax(0,6fr);gap:28px;max-width:1280px;margin:auto;padding:24px 40px 60px}
+@media(max-width:900px){main{grid-template-columns:1fr;padding:20px}header{padding:24px 20px 0}}
+section{display:flex;flex-direction:column;gap:18px}
+h2{margin:0;font-size:18px;font-weight:600}
+.drop{border:2px dashed var(--plum2);border-radius:18px;padding:34px 20px;text-align:center;cursor:pointer;background:var(--plum);transition:border-color .15s,background .15s}
+.drop:hover,.drop.over{border-color:var(--pumpkin);background:var(--plum2)}
+.drop b{display:block;font-size:20px}
+.drop span{color:var(--lilac);font-size:14px}
+.tray{display:grid;grid-template-columns:repeat(auto-fill,minmax(110px,1fr));gap:14px}
+.doc{position:relative;background:var(--paper);border-radius:6px;aspect-ratio:3/4;overflow:hidden;box-shadow:0 8px 20px #0007}
+.doc:nth-child(odd){transform:rotate(-1.2deg)}.doc:nth-child(even){transform:rotate(1deg)}
+.doc img{width:100%;height:100%;object-fit:cover}
+.doc .st{position:absolute;left:0;right:0;bottom:0;padding:4px 8px;font-size:12px;font-weight:600;color:var(--ink);background:#ffffffd9}
+.doc.working .st{background:var(--pumpkin)}.doc.done .st{background:var(--mint)}.doc.error .st{background:var(--rose)}
+.doc.working img{animation:pulse 1.2s ease-in-out infinite}
+@keyframes pulse{50%{opacity:.55}}
+.doc button{position:absolute;top:4px;right:4px;border:0;border-radius:50%;width:22px;height:22px;background:#170d2bcc;color:#fff;cursor:pointer;line-height:1}
+.tabs{display:flex;gap:8px;flex-wrap:wrap}
+.tabs button,select,textarea{font:inherit;color:var(--paper)}
+.tabs button{border:1px solid var(--plum2);background:transparent;border-radius:99px;padding:6px 16px;cursor:pointer}
+.tabs button[aria-pressed=true]{background:var(--lilac);color:var(--ink);border-color:var(--lilac)}
+textarea{width:100%;min-height:130px;background:var(--plum);border:1px solid var(--plum2);border-radius:12px;padding:12px;font:13px/1.5 "JetBrains Mono",monospace;resize:vertical}
+.row{display:flex;gap:12px;align-items:center;flex-wrap:wrap}
+select{background:var(--plum);border:1px solid var(--plum2);border-radius:10px;padding:8px 12px}
+label.chk{display:flex;gap:8px;align-items:center;color:var(--lilac);font-size:14px}
+.go{margin-left:auto;border:0;background:var(--pumpkin);color:var(--ink);font:800 17px "Bricolage Grotesque";padding:12px 26px;border-radius:12px;cursor:pointer}
+.go:disabled{opacity:.4;cursor:not-allowed}
+:focus-visible{outline:3px solid var(--lilac);outline-offset:2px}
+.out{background:var(--paper);color:var(--ink);border-radius:18px;overflow:hidden;display:flex;flex-direction:column;min-height:480px}
+.bar{display:flex;gap:8px;padding:12px 16px;border-bottom:1px solid #170d2b22;align-items:center}
+.bar span{margin-right:auto;font-weight:600}
+.bar button{border:1px solid #170d2b44;background:transparent;color:var(--ink);border-radius:8px;padding:5px 12px;font:inherit;font-size:14px;cursor:pointer}
+.bar button:hover{background:var(--ink);color:var(--paper)}
+pre{margin:0;padding:18px;overflow:auto;flex:1;font:13px/1.6 "JetBrains Mono",monospace;max-height:70vh;white-space:pre-wrap}
+.empty{color:#170d2b99;font-family:"Bricolage Grotesque";font-size:16px}
+.err{color:var(--rose);font-size:14px;margin:0}
+@media(prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+</style>
+</head>
+<body>
+<header>
+  <h1>Scribe</h1>
+  <p>Drop in receipts, invoices and forms. Get clean JSON, shaped the way you need it. Runs on Gemma 4, on your machine.</p>
+</header>
+<main>
+<section>
+  <label class="drop" id="drop" tabindex="0">
+    <b>Drop documents here</b><span>or click to choose photos and scans</span>
+    <input id="pick" type="file" accept="image/*" multiple hidden>
+  </label>
+  <div class="tray" id="tray"></div>
+
+  <h2>What should the JSON look like?</h2>
+  <div class="tabs" id="tabs"></div>
+  <textarea id="schema" spellcheck="false" hidden></textarea>
+  <p id="hint" class="empty" style="color:var(--lilac);margin:0"></p>
+
+  <div class="row">
+    <select id="model" aria-label="Model">
+      <option value="gemma4:e4b">Gemma 4 E4B (fast)</option>
+      <option value="gemma4:26b">Gemma 4 26B (accurate)</option>
+      <option value="gemma4:31b">Gemma 4 31B (best)</option>
+    </select>
+    <button class="go" id="go" disabled>Extract</button>
+  </div>
+  <p class="err" id="err"></p>
+</section>
+
+<section>
+  <h2>Result</h2>
+  <div class="out">
+    <div class="bar">
+      <span id="count">No documents yet</span>
+      <label class="chk" style="color:var(--ink)"><input type="checkbox" id="src" checked> Add file names</label>
+      <button id="copy">Copy</button><button id="dlj">JSON</button><button id="dlc">CSV</button><button id="dlz" hidden>Folders (.zip)</button>
+    </div>
+    <pre id="out"><span class="empty">Extracted data appears here. Everything is combined into one JSON file.</span></pre>
+  </div>
+</section>
+</main>
+
+<script>
+const T=(t)=>({type:[t,"null"]});
+const PRESETS={
+  Auto:null,
+  "Auto-sort":"sort",
+  Receipt:{type:"object",properties:{vendor:T("string"),date:T("string"),currency:T("string"),
+    items:{type:"array",items:{type:"object",properties:{description:T("string"),quantity:T("number"),price:T("number")}}},
+    subtotal:T("number"),tax:T("number"),total:T("number"),payment_method:T("string")}},
+  Invoice:{type:"object",properties:{invoice_number:T("string"),issue_date:T("string"),due_date:T("string"),
+    seller:T("string"),buyer:T("string"),
+    line_items:{type:"array",items:{type:"object",properties:{description:T("string"),quantity:T("number"),unit_price:T("number"),amount:T("number")}}},
+    total:T("number"),currency:T("string")}},
+  "Business card":{type:"object",properties:{name:T("string"),title:T("string"),company:T("string"),email:T("string"),phone:T("string"),website:T("string"),address:T("string")}},
+  Custom:"custom"
+};
+const HINTS={Auto:"The model decides which fields matter.","Auto-sort":"Scribe works out what each document is, extracts the right fields, and files it into a folder for that type.",Custom:"One field per line as name: type (string, number, integer, boolean, date, list). Or paste a full JSON Schema."};
+const $=id=>document.getElementById(id);
+let files=[],tab="Receipt",n=0;const batch=Date.now().toString(36);
+
+$("tabs").innerHTML=Object.keys(PRESETS).map(k=>`<button aria-pressed="${k===tab}" data-k="${k}">${k}</button>`).join("");
+function setTab(k){tab=k;[...$("tabs").children].forEach(b=>b.setAttribute("aria-pressed",b.dataset.k===k));
+  const custom=k==="Custom";$("schema").hidden=!custom;
+  if(custom&&!$("schema").value)$("schema").value="vendor: string\ndate: date\ntotal: number\nitems: list";
+  $("hint").textContent=HINTS[k]||"Fields: "+Object.keys(PRESETS[k].properties).join(", ");}
+$("tabs").onclick=e=>e.target.dataset.k&&setTab(e.target.dataset.k);setTab(tab);
+
+function currentSchema(){
+  if(tab==="Auto"||tab==="Auto-sort")return null;
+  if(tab!=="Custom")return PRESETS[tab];
+  const raw=$("schema").value.trim();
+  if(raw.startsWith("{"))return JSON.parse(raw);
+  const map={string:"string",date:"string",number:"number",integer:"integer",int:"integer",boolean:"boolean",bool:"boolean"};
+  const properties={};
+  for(const line of raw.split("\n")){
+    const [k,t=""]=line.split(":").map(s=>s.trim());if(!k)continue;
+    properties[k]=t.startsWith("list")?{type:"array",items:{type:"string"}}:T(map[t]||"string");
+  }
+  return {type:"object",properties};
+}
+
+function add(list){for(const f of list)if(f.type.startsWith("image/"))files.push({id:n++,f,url:URL.createObjectURL(f),status:"queued"});draw();}
+function draw(){
+  $("tray").innerHTML=files.map(x=>`<div class="doc ${x.status}"><img src="${x.url}" alt="${x.f.name}"><button data-id="${x.id}" aria-label="Remove ${x.f.name}">×</button><div class="st">${x.status==="done"&&x.category?x.category.replace("_"," "):{queued:"Ready",working:"Reading…",done:"Done",error:"Failed"}[x.status]}</div></div>`).join("");
+  $("go").disabled=!files.some(x=>x.status!=="done");render();}
+$("tray").onclick=e=>{if(e.target.dataset.id){files=files.filter(x=>x.id!=e.target.dataset.id);draw();}};
+$("pick").onchange=e=>add(e.target.files);
+const drop=$("drop");
+["dragenter","dragover"].forEach(ev=>drop.addEventListener(ev,e=>{e.preventDefault();drop.classList.add("over")}));
+["dragleave","drop"].forEach(ev=>drop.addEventListener(ev,e=>{e.preventDefault();drop.classList.remove("over")}));
+drop.addEventListener("drop",e=>add(e.dataTransfer.files));
+drop.addEventListener("keydown",e=>e.key==="Enter"&&$("pick").click());
+
+$("go").onclick=async()=>{
+  let schema;$("err").textContent="";
+  try{schema=currentSchema();}catch{$("err").textContent="That schema isn't valid JSON.";return;}
+  $("go").disabled=true;
+  for(const x of files.filter(x=>x.status!=="done")){
+    x.status="working";draw();
+    const fd=new FormData();fd.append("file",x.f);fd.append("model",$("model").value);fd.append("batch",batch);
+    if(tab==="Auto-sort"){fd.append("sort","1");fd.append("schemas",JSON.stringify({receipt:PRESETS.Receipt,invoice:PRESETS.Invoice,business_card:PRESETS["Business card"]}));}
+    if(schema)fd.append("schema",JSON.stringify(schema));
+    try{const r=await fetch("/api/extract",{method:"POST",body:fd});
+      if(!r.ok)throw new Error((await r.json()).detail);
+      const j=await r.json();x.data=j.data;x.category=j.category;x.status="done";
+    }catch(e){x.status="error";$("err").textContent=`${x.f.name}: ${e.message}`;}
+    draw();
+  }
+};
+
+const done=()=>files.filter(x=>x.status==="done");
+const row=x=>$("src").checked?{_file:x.f.name,...x.data}:x.data;
+function combined(){return done().map(x=>x.category?{_category:x.category,...row(x)}:row(x));}
+function payload(){
+  if(!done().some(x=>x.category))return {documents:done().map(row)};
+  const g={};for(const x of done())(g[x.category]??=[]).push(row(x));return {documents:g};}
+function render(){
+  const d=combined();$("dlz").hidden=!done().some(x=>x.category);$("count").textContent=d.length?`${d.length} document${d.length>1?"s":""}`:"No documents yet";
+  if(d.length)$("out").textContent=JSON.stringify(payload(),null,2);}
+$("src").onchange=render;
+const save=(name,text,type)=>{const a=document.createElement("a");a.href=URL.createObjectURL(new Blob([text],{type}));a.download=name;a.click();};
+$("copy").onclick=()=>navigator.clipboard.writeText(JSON.stringify(payload(),null,2));
+$("dlj").onclick=()=>save("documents.json",JSON.stringify(payload(),null,2),"application/json");
+$("dlz").onclick=()=>{location.href="/api/zip/"+batch};
+$("dlc").onclick=()=>{const d=combined(),cols=[...new Set(d.flatMap(Object.keys))];
+  const cell=v=>`"${(v==null?"":typeof v==="object"?JSON.stringify(v):String(v)).replace(/"/g,'""')}"`;
+  save("documents.csv",[cols.join(","),...d.map(r=>cols.map(c=>cell(r[c])).join(","))].join("\n"),"text/csv");};
+</script>
+</body>
+</html>
